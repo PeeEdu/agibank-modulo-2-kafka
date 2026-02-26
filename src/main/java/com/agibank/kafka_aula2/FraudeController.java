@@ -1,7 +1,8 @@
 package com.agibank.kafka_aula2;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import com.agibank.kafka_aula2.dto.TransacaoDTO;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -15,9 +16,8 @@ public class FraudeController {
         this.fraudeService = fraudeService;
     }
 
-    @GetMapping("/{chave}")
-    public boolean verificarFraude(@PathVariable String chave){
-        return fraudeService.isFraude(chave);
+    @PostMapping
+    public boolean verificarTransacao(@RequestBody TransacaoDTO transacao) {
+        return fraudeService.isFraude(transacao);
     }
-
 }
