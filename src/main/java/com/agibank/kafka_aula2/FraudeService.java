@@ -1,40 +1,53 @@
 package com.agibank.kafka_aula2;
 
+import com.agibank.kafka_aula2.dto.TransacaoDTO;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Map;
 
 @Service
 public class FraudeService {
 
-    private final Map<String, LocalDateTime> chavesExistentes;
-    private static final Integer TTL_EM_MINUTOS = 5;
+    private final StringRedisTemplate redisTemplate;
+    private static final int TTL_MINUTOS = 5;
 
-    public FraudeService(Map<String, LocalDateTime> chavesExistentes) {
-        this.chavesExistentes = chavesExistentes;
+    public FraudeService(StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
     }
 
-    public boolean isFraude(String chave) {
-        LocalDateTime agora = LocalDateTime.now();
-        if (!chavesExistentes.containsKey(chave)) {
-            updateChavesExistentes(chavesExistentes, chave, agora);
+    public boolean isFraude(TransacaoDTO transacaoDTO) {
+        boolean suspeitaRepeticao = isRepeticaoRapida(transacaoDTO.cartaoId());
+        boolean origemAlterada = origemDiferente(transacaoDTO.cartaoId(), transacaoDTO.localizacao());
+        boolean valorAlto = valorSuspeito(transacaoDTO.cartaoId(), transacaoDTO.valor());
+        return suspeitaRepeticao || origemAlterada || valorAlto;
+    }
+
+    private boolean isRepeticaoRapida(String chave) {
+        Boolean exists = redisTemplate.hasKey(chave);
+        if (Boolean.TRUE.equals(exists)) {
+            redisTemplate.expire(chave, Duration.ofMinutes(TTL_MINUTOS));
+            return true;
+        } else {
+            redisTemplate.opsForValue().set(chave, "1", Duration.ofMinutes(TTL_MINUTOS));
             return false;
         }
-        LocalDateTime momentoDoRegistroDaChave = chavesExistentes.get(chave);
-        Duration duration = Duration.between(momentoDoRegistroDaChave, agora);
-        long minutes = duration.toMinutes();
-        updateChavesExistentes(chavesExistentes, chave, agora);
-        return minutes < TTL_EM_MINUTOS;
     }
 
-    private void updateChavesExistentes(
-            Map<String, LocalDateTime> chavesExistentes,
-            String novaChave,
-            LocalDateTime novoAgora
-    ) {
-        chavesExistentes.put(novaChave, novoAgora);
+    private boolean origemDiferente(String usuario, String localizacao) {
+        String key = "ultimaOrigem:" + usuario;
+        String ultima = redisTemplate.opsForValue().get(key);
+        redisTemplate.opsForValue().set(key, localizacao, Duration.ofHours(1));
+        return ultima != null && !ultima.equals(localizacao);
     }
 
+    private boolean valorSuspeito(String usuario, BigDecimal valorAtual) {
+        String key = "mediaValor:" + usuario;
+        String anterior = redisTemplate.opsForValue().get(key);
+        BigDecimal media = anterior != null ? new BigDecimal(anterior) : valorAtual;
+        BigDecimal novaMedia = media.add(valorAtual).divide(BigDecimal.valueOf(2));
+        redisTemplate.opsForValue().set(key, novaMedia.toString(), Duration.ofHours(1));
+        return valorAtual.compareTo(media.multiply(BigDecimal.valueOf(3))) > 0;
+    }
 }
