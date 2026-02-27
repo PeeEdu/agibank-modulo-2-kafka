@@ -17,7 +17,8 @@ public class FraudeController {
     }
 
     @PostMapping
-    public boolean verificarTransacao(@RequestBody TransacaoDTO transacao) {
-        return fraudeService.isFraude(transacao);
+    public String verificarTransacao(@RequestBody TransacaoDTO transacao) {
+        fraudeService.processarTransacao(transacao);
+        return "Transação processada e publicada no Kafka!";
     }
 }

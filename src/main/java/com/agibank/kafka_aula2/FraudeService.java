@@ -11,18 +11,43 @@ import java.time.Duration;
 public class FraudeService {
 
     private final StringRedisTemplate redisTemplate;
+    private final KafkaProducer kafkaProducer;
+    private int contador = 0;
     private static final int TTL_MINUTOS = 5;
 
-    public FraudeService(StringRedisTemplate redisTemplate) {
+    public FraudeService(StringRedisTemplate redisTemplate, KafkaProducer kafkaProducer) {
         this.redisTemplate = redisTemplate;
+        this.kafkaProducer = kafkaProducer;
     }
 
-    //TODO se for fraude ele manda msg, se nao ele nao retorna nada
+    public void processarTransacao(TransacaoDTO transacaoDTO) {
+        contador++;
+
+        if (contador % 10 == 0) {
+            kafkaProducer.publishParaDlq(transacaoDTO);
+            System.out.printf("Transação enviada para DLQ - ID %s.%n", transacaoDTO.cartaoId());
+            return;
+        }
+        boolean fraude = isFraude(transacaoDTO);
+        if (fraude) {
+            System.out.printf("Fraude detectada para - ID %s.%n", transacaoDTO.cartaoId());
+            kafkaProducer.publishFraude(transacaoDTO);
+        } else {
+            kafkaProducer.publishValida(transacaoDTO);
+        }
+    }
+
     public boolean isFraude(TransacaoDTO transacaoDTO) {
+
         boolean suspeitaRepeticao = isRepeticaoRapida(transacaoDTO.cartaoId());
+
         boolean origemAlterada = origemDiferente(transacaoDTO.cartaoId(), transacaoDTO.localizacao());
+
         boolean valorAlto = valorSuspeito(transacaoDTO.cartaoId(), transacaoDTO.valor());
-        return suspeitaRepeticao || origemAlterada || valorAlto;
+
+        boolean horarioSuspeito = horarioSuspeito(transacaoDTO);
+
+        return suspeitaRepeticao || origemAlterada || valorAlto || horarioSuspeito;
     }
 
     private boolean isRepeticaoRapida(String chave) {
@@ -50,5 +75,10 @@ public class FraudeService {
         BigDecimal novaMedia = media.add(valorAtual).divide(BigDecimal.valueOf(2));
         redisTemplate.opsForValue().set(key, novaMedia.toString(), Duration.ofHours(1));
         return valorAtual.compareTo(media.multiply(BigDecimal.valueOf(3))) > 0;
+    }
+
+    private boolean horarioSuspeito(TransacaoDTO transacaoDTO) {
+        int hora = transacaoDTO.dataHora().getHour();
+        return hora < 6 || hora > 23; // madrugada
     }
 }
