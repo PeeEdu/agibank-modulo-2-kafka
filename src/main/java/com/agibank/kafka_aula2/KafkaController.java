@@ -1,6 +1,7 @@
 package com.agibank.kafka_aula2;
 
 import com.agibank.kafka_aula2.dto.MensagemRequest;
+import com.agibank.kafka_aula2.dto.TransacaoDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -20,8 +21,8 @@ public class KafkaController {
 
     @PostMapping("/send")
     @Operation(summary = "Enviar mensagem ao Kafka")
-    public String send(@Valid @RequestBody final MensagemRequest mensagemRequest){
-        producer.publish(mensagemRequest);
+    public String send(@Valid @RequestBody final TransacaoDTO transacao){
+        producer.publish(transacao);
         return "Mensagem Enviada";
     }
 }

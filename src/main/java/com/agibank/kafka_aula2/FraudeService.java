@@ -17,6 +17,7 @@ public class FraudeService {
         this.redisTemplate = redisTemplate;
     }
 
+    //TODO se for fraude ele manda msg, se nao ele nao retorna nada
     public boolean isFraude(TransacaoDTO transacaoDTO) {
         boolean suspeitaRepeticao = isRepeticaoRapida(transacaoDTO.cartaoId());
         boolean origemAlterada = origemDiferente(transacaoDTO.cartaoId(), transacaoDTO.localizacao());

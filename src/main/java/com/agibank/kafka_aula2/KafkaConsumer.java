@@ -1,5 +1,6 @@
 package com.agibank.kafka_aula2;
 
+import com.agibank.kafka_aula2.dto.TransacaoDTO;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -9,11 +10,17 @@ import java.util.function.Consumer;
 @Configuration
 public class KafkaConsumer {
 
+    private final FraudeService fraudeService;
+
+    public KafkaConsumer(FraudeService fraudeService) {
+        this.fraudeService = fraudeService;
+    }
+
     @Bean
-    public Consumer<Message<String>> testConsumer(){
+    public Consumer<Message<TransacaoDTO>> testConsumer(){
         return message -> {
             System.out.println("Consumindo!");
-            System.out.println(message.getPayload());
+            fraudeService.isFraude(message.getPayload());
         };
     }
 }
