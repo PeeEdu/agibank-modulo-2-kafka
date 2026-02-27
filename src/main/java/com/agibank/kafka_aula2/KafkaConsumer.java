@@ -20,7 +20,7 @@ public class KafkaConsumer {
     public Consumer<Message<TransacaoDTO>> testConsumer(){
         return message -> {
             System.out.println("Consumindo!");
-            fraudeService.isFraude(message.getPayload());
+            fraudeService.processarTransacao(message.getPayload());
         };
     }
 }

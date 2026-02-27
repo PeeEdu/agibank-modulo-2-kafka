@@ -1,3 +1,5 @@
+server:
+  port: 8086
 spring:
   threads:
     virtual:
@@ -12,7 +14,7 @@ spring:
 
     stream:
       bindings:
-        # Producer
+        # Original Producer
         test-out-0:
           destination: my-topic
           content-type: application/json
@@ -27,6 +29,19 @@ spring:
             back-off-initial-interval: 5000
             back-off-max-interval: 30000
             back-off-multiplier: 2.0
+
+        # Others Producers
+        validas-out-0:
+          destination: transacoes-validas
+          content-type: application/json
+
+        fraudes-out-0:
+          destination: transacoes-fraude
+          content-type: application/json
+
+        dlq-out-0:
+          destination: my-topic-dlq
+          content-type: application/json
 
       # Todas as configurações do Kafka aqui (sem duplicação)
       kafka:
