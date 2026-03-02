@@ -15,7 +15,7 @@ public class FraudeService {
     private final StringRedisTemplate redisTemplate;
     private final KafkaProducer kafkaProducer;
     private int contador = 0;
-    private static final int TTL_MINUTOS = 5;
+    private static final int TTL_SEGUNDOS = 20;
 
     public FraudeService(StringRedisTemplate redisTemplate, KafkaProducer kafkaProducer) {
         this.redisTemplate = redisTemplate;
@@ -82,10 +82,10 @@ public class FraudeService {
     private boolean isRepeticaoRapida(String cartaoId) {
         Boolean exists = redisTemplate.hasKey(cartaoId);
         if (Boolean.TRUE.equals(exists)) {
-            redisTemplate.expire(cartaoId, Duration.ofMinutes(TTL_MINUTOS));
+            redisTemplate.expire(cartaoId, Duration.ofSeconds(TTL_SEGUNDOS));
             return true;
         } else {
-            redisTemplate.opsForValue().set(cartaoId, "1", Duration.ofMinutes(TTL_MINUTOS));
+            redisTemplate.opsForValue().set(cartaoId, "1", Duration.ofSeconds(TTL_SEGUNDOS));
             return false;
         }
     }
