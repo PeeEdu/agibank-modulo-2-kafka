@@ -1,11 +1,13 @@
 package com.agibank.kafka_aula2;
 
 import com.agibank.kafka_aula2.dto.TransacaoDTO;
+import com.agibank.kafka_aula2.dto.TransacaoFraudeDTO;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.Optional;
 
 @Service
 public class FraudeService {
@@ -23,53 +25,86 @@ public class FraudeService {
     public void processarTransacao(TransacaoDTO transacaoDTO) {
         contador++;
 
+        // a cada 10 transação - DLQ
         if (contador % 10 == 0) {
             kafkaProducer.publishParaDlq(transacaoDTO);
-            System.out.printf("Transação enviada para DLQ - ID %s.%n", transacaoDTO.cartaoId());
+            System.out.printf("Transação enviada para DLQ - cartaoId: %s%n", transacaoDTO.cartaoId());
             return;
         }
-        boolean fraude = isFraude(transacaoDTO);
-        if (fraude) {
-            System.out.printf("Fraude detectada para - ID %s.%n", transacaoDTO.cartaoId());
-            kafkaProducer.publishFraude(transacaoDTO);
+
+        // Verifica se existe algum motivo de fraude
+        Optional<String> motivoFraude = verificarFraude(transacaoDTO);
+
+        if (motivoFraude.isPresent()) {
+            TransacaoFraudeDTO fraudeDTO = new TransacaoFraudeDTO(
+                    transacaoDTO.id(),
+                    transacaoDTO.contaId(),
+                    transacaoDTO.cartaoId(),
+                    transacaoDTO.valor(),
+                    transacaoDTO.comerciante(),
+                    transacaoDTO.localizacao(),
+                    transacaoDTO.tipoTransacao(),
+                    transacaoDTO.dataHora(),
+                    motivoFraude.get()
+            );
+
+            System.out.printf("Fraude detectada (%s) para cartaoId: %s%n",
+                    motivoFraude.get(), transacaoDTO.cartaoId());
+
+            kafkaProducer.publishFraude(fraudeDTO);
         } else {
             kafkaProducer.publishValida(transacaoDTO);
         }
     }
 
-    public boolean isFraude(TransacaoDTO transacaoDTO) {
-
-        boolean suspeitaRepeticao = isRepeticaoRapida(transacaoDTO.cartaoId());
-
-        boolean origemAlterada = origemDiferente(transacaoDTO.cartaoId(), transacaoDTO.localizacao());
-
-        boolean valorAlto = valorSuspeito(transacaoDTO.cartaoId(), transacaoDTO.valor());
-
-        boolean horarioSuspeito = horarioSuspeito(transacaoDTO);
-
-        return suspeitaRepeticao || origemAlterada || valorAlto || horarioSuspeito;
+    /**
+     * Retorna o motivo de fraude se atingir alguma das regras.
+     */
+    private Optional<String> verificarFraude(TransacaoDTO transacaoDTO) {
+        if (isRepeticaoRapida(transacaoDTO.cartaoId())) {
+            return Optional.of("Repetição rápida do mesmo cartão");
+        }
+        if (origemDiferente(transacaoDTO.cartaoId(), transacaoDTO.localizacao())) {
+            return Optional.of("Localização diferente da última transação");
+        }
+        if (valorSuspeito(transacaoDTO.cartaoId(), transacaoDTO.valor())) {
+            return Optional.of("Valor muito acima da média");
+        }
+        if (horarioSuspeito(transacaoDTO)) {
+            return Optional.of("Transação em horário suspeito (madrugada)");
+        }
+        return Optional.empty();
     }
 
-    private boolean isRepeticaoRapida(String chave) {
-        Boolean exists = redisTemplate.hasKey(chave);
+    /**
+     * Repetição rápida de transações do mesmo cartão.
+     */
+    private boolean isRepeticaoRapida(String cartaoId) {
+        Boolean exists = redisTemplate.hasKey(cartaoId);
         if (Boolean.TRUE.equals(exists)) {
-            redisTemplate.expire(chave, Duration.ofMinutes(TTL_MINUTOS));
+            redisTemplate.expire(cartaoId, Duration.ofMinutes(TTL_MINUTOS));
             return true;
         } else {
-            redisTemplate.opsForValue().set(chave, "1", Duration.ofMinutes(TTL_MINUTOS));
+            redisTemplate.opsForValue().set(cartaoId, "1", Duration.ofMinutes(TTL_MINUTOS));
             return false;
         }
     }
 
-    private boolean origemDiferente(String usuario, String localizacao) {
-        String key = "ultimaOrigem:" + usuario;
+    /**
+     * Verifica se o mesmo cartão operou em localizações diferentes dentro de um curto prazo.
+     */
+    private boolean origemDiferente(String cartaoId, String localizacao) {
+        String key = "ultimaOrigem:" + cartaoId;
         String ultima = redisTemplate.opsForValue().get(key);
         redisTemplate.opsForValue().set(key, localizacao, Duration.ofHours(1));
         return ultima != null && !ultima.equals(localizacao);
     }
 
-    private boolean valorSuspeito(String usuario, BigDecimal valorAtual) {
-        String key = "mediaValor:" + usuario;
+    /**
+     * Verifica se o valor atual é muito superior à média histórica das últimas transações do cartão.
+     */
+    private boolean valorSuspeito(String cartaoId, BigDecimal valorAtual) {
+        String key = "mediaValor:" + cartaoId;
         String anterior = redisTemplate.opsForValue().get(key);
         BigDecimal media = anterior != null ? new BigDecimal(anterior) : valorAtual;
         BigDecimal novaMedia = media.add(valorAtual).divide(BigDecimal.valueOf(2));
@@ -77,8 +112,11 @@ public class FraudeService {
         return valorAtual.compareTo(media.multiply(BigDecimal.valueOf(3))) > 0;
     }
 
+    /**
+     * Verifica se a transação ocorreu em horário suspeito (madrugada).
+     */
     private boolean horarioSuspeito(TransacaoDTO transacaoDTO) {
         int hora = transacaoDTO.dataHora().getHour();
-        return hora < 6 || hora > 23; // madrugada
+        return hora < 6 || hora > 23;
     }
 }
