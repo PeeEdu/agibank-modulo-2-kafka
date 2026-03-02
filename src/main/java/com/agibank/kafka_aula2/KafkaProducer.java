@@ -1,6 +1,7 @@
 package com.agibank.kafka_aula2;
 
 import com.agibank.kafka_aula2.dto.TransacaoDTO;
+import com.agibank.kafka_aula2.dto.TransacaoFraudeDTO;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
 
@@ -21,8 +22,10 @@ public class KafkaProducer {
         streamBridge.send("dlq-out-0", transacao);
     }
 
-    public void publishFraude(final TransacaoDTO transacao) {
-        streamBridge.send("fraudes-out-0", transacao);
+    public void publishFraude(final TransacaoFraudeDTO transacaoFraude) {
+        streamBridge.send("fraudes-out-0", transacaoFraude);
+        System.out.printf("Transação fraudulenta enviada: %s - Motivo: %s%n",
+                transacaoFraude.cartaoId(), transacaoFraude.motivoFraude());
     }
 
     public void publishValida(final TransacaoDTO transacao) {
