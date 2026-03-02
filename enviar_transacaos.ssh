@@ -1,0 +1,26 @@
+#!/bin/bash
+
+ENDPOINT="http://localhost:8086/fraude"
+
+declare -a JSONS=(
+'{"id":"1","contaId":"1","cartaoId":"1222222222222","valor":15,"comerciante":"MC Donalds","localizacao":"SP","tipoTransacao":"CREDITO","dataHora":"2026-02-26T10:25:46.358638485-03:00"}'
+'{"id":"2","contaId":"1","cartaoId":"1222222222222","valor":15,"comerciante":"MC Donalds","localizacao":"SP","tipoTransacao":"DEBITO","dataHora":"2026-02-26T10:27:10.358638485-03:00"}'
+'{"id":"3","contaId":"1","cartaoId":"1222222222222","valor":200,"comerciante":"Apple Store","localizacao":"SP","tipoTransacao":"CREDITO","dataHora":"2026-02-26T10:40:00.358638485-03:00"}'
+'{"id":"4","contaId":"2","cartaoId":"9333333333333","valor":30,"comerciante":"Panificadora do João","localizacao":"RJ","tipoTransacao":"DEBITO","dataHora":"2026-02-26T12:25:46.358638485-03:00"}'
+'{"id":"5","contaId":"2","cartaoId":"9333333333333","valor":30,"comerciante":"Panificadora do João","localizacao":"SP","tipoTransacao":"DEBITO","dataHora":"2026-02-26T12:30:46.358638485-03:00"}'
+'{"id":"6","contaId":"3","cartaoId":"8444444444444","valor":20,"comerciante":"Posto Shell","localizacao":"MG","tipoTransacao":"CREDITO","dataHora":"2026-02-26T02:10:46.358638485-03:00"}'
+'{"id":"7","contaId":"4","cartaoId":"7555555555555","valor":50,"comerciante":"Netflix","localizacao":"SC","tipoTransacao":"CREDITO","dataHora":"2026-02-26T09:10:46.358638485-03:00"}'
+'{"id":"8","contaId":"5","cartaoId":"7666666666666","valor":350,"comerciante":"Amazon","localizacao":"RS","tipoTransacao":"CREDITO","dataHora":"2026-02-26T19:10:46.358638485-03:00"}'
+'{"id":"9","contaId":"6","cartaoId":"7888888888888","valor":10,"comerciante":"Farmácia Popular","localizacao":"BA","tipoTransacao":"DEBITO","dataHora":"2026-02-26T14:10:46.358638485-03:00"}'
+'{"id":"10","contaId":"7","cartaoId":"7999999999999","valor":25,"comerciante":"Lanchonete Central","localizacao":"SP","tipoTransacao":"CREDITO","dataHora":"2026-02-26T16:10:46.358638485-03:00"}'
+)
+
+for json in "${JSONS[@]}"; do
+  echo "Enviando transação..."
+  curl -s -X POST "$ENDPOINT" \
+    -H "Content-Type: application/json" \
+    -d "$json"
+  echo ""
+done
+
+echo "Todas as transações processadas!"
